@@ -1,0 +1,66 @@
+name: Generate Tamil Bible APK
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Recreate Project Structure
+        run: |
+          flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
+          mkdir -p my_app/assets
+          unzip -o Tamil_Study_Bible_With_History_v3.zip -d extracted_files/
+          cp extracted_files/tamil_study_bible.db my_app/assets/
+          cp extracted_files/lib/main.dart my_app/lib/main.dart
+          cat << 'EOF' > my_app/pubspec.yaml
+          name: tamil_study_bible_app
+          description: Tamil Offline Study Bible Android App
+          publish_to: 'none'
+          version: 1.0.0+1
+
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+
+          dependencies:
+            flutter:
+              sdk: flutter
+            sqflite: ^2.3.0
+            path: ^1.8.3
+
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/tamil_study_bible.db
+          EOF
+
+      - name: Get Dependencies
+        run: |
+          cd my_app
+          flutter pub get
+
+      - name: Build Android APK
+        run: |
+          cd my_app
+          flutter build apk --release
+
+      - name: Upload APK File
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tamil-Bible-APK
+          path: my_app/build/app/outputs/flutter-apk/app-release.apk
