@@ -7,59 +7,51 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Recreate Project Structure
+      - name: Create and Configure App
         run: |
+          # 1. புதிய Flutter திட்டத்தை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
-          mkdir -p my_app/assets
-          unzip -o Tamil_Study_Bible_With_History_v3.zip -d extracted_files/
-          cp extracted_files/tamil_study_bible.db my_app/assets/
-          cp extracted_files/lib/main.dart my_app/lib/main.dart
-          cat << 'EOF' > my_app/pubspec.yaml
-          name: tamil_study_bible_app
-          description: Tamil Offline Study Bible Android App
-          publish_to: 'none'
-          version: 1.0.0+1
+          cd my_app
 
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
+          # 2. தேவையான நூலகங்களைச் சேர்த்தல்
+          flutter pub add sqflite path
 
-          dependencies:
-            flutter:
-              sdk: flutter
-            sqflite: ^2.3.0
-            path: ^1.8.3
+          # 3. Assets அமைத்து தரவுத்தளத்தை வைத்தல்
+          mkdir -p assets
+          cp ../tamil_study_bible.db assets/
 
-          flutter:
-            uses-material-design: true
-            assets:
-              - assets/tamil_study_bible.db
-          EOF
+          # 4. Zip கோப்பிலிருந்து main.dart எடுத்தல்
+          unzip -o ../Tamil_Study_Bible_With_History_v3.zip
+          cp lib/main.dart lib/main.dart
 
-      - name: Get Dependencies
+          # 5. pubspec.yaml-ல் assets சேர்த்தல்
+          sed -i '/uses-material-design: true/a \  assets:\n    - assets/tamil_study_bible.db' pubspec.yaml
+
+          # 6. Gradle minSdkVersion 21 அமைத்தல்
+          sed -i 's/minSdkVersion = flutter.minSdkVersion/minSdkVersion = 21/g' android/app/build.gradle || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+
+      - name: Build Android Release APK
         run: |
           cd my_app
-          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
-      - name: Build Android APK
-        run: |
-          cd my_app
-          flutter build apk --release
-
-      - name: Upload APK File
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Tamil-Bible-APK
