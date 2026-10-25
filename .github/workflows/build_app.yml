@@ -19,40 +19,53 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          flutter-version: '3.16.9'
           channel: 'stable'
 
-      - name: Create and Configure App
+      - name: Prepare and Build APK
         run: |
+          # 1. புதிய சுத்தமான Flutter செயலியை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
           cd my_app
 
-          flutter pub add sqflite path
-
+          # 2. Assets கோப்பகத்தை அமைத்து தரவுத்தளத்தை வைத்தல்
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
 
+          # 3. Zip கோப்பிலிருந்து main.dart கோப்பை மட்டும் எடுத்தல்
           unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
           cp -f temp_extracted/lib/main.dart lib/main.dart
           rm -rf temp_extracted
 
-          # pubspec.yaml-ல் assets சேர்த்தல்
-          sed -i '/uses-material-design: true/a \  assets:\n    - assets/tamil_study_bible.db' pubspec.yaml
+          # 4. முழுமையான pubspec.yaml கோப்பை பிழையின்றி உருவாக்குதல்
+          cat << 'EOF' > pubspec.yaml
+          name: tamil_study_bible_app
+          description: Tamil Offline Study Bible Android App
+          publish_to: 'none'
+          version: 1.0.0+1
 
-          # Gradle SDK பதிப்புகளைச் சரியாக அமைத்தல்
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle || true
-          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle || true
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
 
-      - name: Build Android Release APK
-        run: |
-          cd my_app
+          dependencies:
+            flutter:
+              sdk: flutter
+            sqflite: ^2.3.0
+            path: ^1.8.3
+
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/tamil_study_bible.db
+          EOF
+
+          # 5. நூலகங்களை நிறுவுதல்
+          flutter pub get
+
+          # 6. Release APK உருவாக்குதல்
           flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK
+      - name: Upload APK File
         uses: actions/upload-artifact@v4
         with:
           name: Tamil-Bible-APK
