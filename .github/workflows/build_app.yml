@@ -19,25 +19,25 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.9'
+          flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Prepare and Build APK
+      - name: Prepare Project and Fix Gradle
         run: |
-          # 1. புதிய சுத்தமான Flutter செயலியை உருவாக்குதல்
+          # 1. புதிய செயலியை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
           cd my_app
 
-          # 2. Assets கோப்பகத்தை அமைத்து தரவுத்தளத்தை வைத்தல்
+          # 2. Assets அமைத்து தரவுத்தளத்தை வைத்தல்
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
 
-          # 3. Zip கோப்பிலிருந்து main.dart கோப்பை மட்டும் எடுத்தல்
+          # 3. Zip-ல் இருந்து main.dart எடுத்தல்
           unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
           cp -f temp_extracted/lib/main.dart lib/main.dart
           rm -rf temp_extracted
 
-          # 4. முழுமையான pubspec.yaml கோப்பை பிழையின்றி உருவாக்குதல்
+          # 4. pubspec.yaml அமைத்தல்
           cat << 'EOF' > pubspec.yaml
           name: tamil_study_bible_app
           description: Tamil Offline Study Bible Android App
@@ -59,10 +59,21 @@ jobs:
               - assets/tamil_study_bible.db
           EOF
 
-          # 5. நூலகங்களை நிறுவுதல்
-          flutter pub get
+          # 5. Gradle minSdkVersion பிழையை முழுமையாக சரிசெய்தல்
+          python3 -c "
+          path = 'android/app/build.gradle'
+          with open(path, 'r') as f:
+              content = f.read()
+          content = content.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21')
+          content = content.replace('minSdk = flutter.minSdkVersion', 'minSdk = 21')
+          with open(path, 'w') as f:
+              f.write(content)
+          "
 
-          # 6. Release APK உருவாக்குதல்
+      - name: Build Android Release APK
+        run: |
+          cd my_app
+          flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK File
