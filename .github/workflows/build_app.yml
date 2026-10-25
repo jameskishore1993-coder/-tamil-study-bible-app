@@ -22,17 +22,17 @@ jobs:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Prepare Project and Fix Gradle
+      - name: Setup and Build Project
         run: |
           # 1. புதிய செயலியை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
           cd my_app
 
-          # 2. Assets அமைத்து தரவுத்தளத்தை வைத்தல்
+          # 2. Assets அமைத்தல்
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
 
-          # 3. Zip-ல் இருந்து main.dart எடுத்தல்
+          # 3. Zip கோப்பிலிருந்து main.dart கோப்பை மட்டும் எடுத்தல்
           unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
           cp -f temp_extracted/lib/main.dart lib/main.dart
           rm -rf temp_extracted
@@ -59,22 +59,26 @@ jobs:
               - assets/tamil_study_bible.db
           EOF
 
-          # 5. Gradle minSdkVersion பிழையை முழுமையாக சரிசெய்தல்
+          # 5. Gradle பிழையைத் தீர்க்கும் முழுமையான ஆண்ட்ராய்டு கட்டமைப்பு திருத்தம்
           python3 -c "
+          import re
           path = 'android/app/build.gradle'
           with open(path, 'r') as f:
-              content = f.read()
-          content = content.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21')
-          content = content.replace('minSdk = flutter.minSdkVersion', 'minSdk = 21')
+              data = f.read()
+          # minSdkVersion மற்றும் compileSdkVersion-ஐ நிலையான எண்களாக மாற்றுதல்
+          data = re.sub(r'minSdkVersion\s+.*', 'minSdkVersion 21', data)
+          data = re.sub(r'minSdk\s*=.*', 'minSdk = 21', data)
+          data = re.sub(r'compileSdkVersion\s+.*', 'compileSdkVersion 34', data)
+          data = re.sub(r'compileSdk\s*=.*', 'compileSdk = 34', data)
+          data = re.sub(r'targetSdkVersion\s+.*', 'targetSdkVersion 34', data)
+          data = re.sub(r'targetSdk\s*=.*', 'targetSdk = 34', data)
           with open(path, 'w') as f:
-              f.write(content)
+              f.write(data)
           "
 
-      - name: Build Android Release APK
-        run: |
-          cd my_app
+          # 6. Build
           flutter pub get
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --release --verbose
 
       - name: Upload APK File
         uses: actions/upload-artifact@v4
