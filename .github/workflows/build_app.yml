@@ -24,28 +24,28 @@ jobs:
 
       - name: Create and Configure App
         run: |
-          # 1. புதிய திட்டத்தை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
           cd my_app
 
-          # 2. தேவையான பேக்கேஜ்களை சேர்த்தல்
           flutter pub add sqflite path
 
-          # 3. Assets கோப்பகம் அமைத்தல்
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
 
-          # 4. Zip கோப்பிலிருந்து main.dart கோப்பை மாற்றுதல்
           unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
           cp -f temp_extracted/lib/main.dart lib/main.dart
           rm -rf temp_extracted
 
-          # 5. assets பாதையை pubspec-ல் சேர்த்தல்
+          # pubspec.yaml-ல் assets சேர்த்தல்
           sed -i '/uses-material-design: true/a \  assets:\n    - assets/tamil_study_bible.db' pubspec.yaml
 
-          # 6. minSdkVersion 21 அமைத்தல்
-          sed -i 's/minSdkVersion = flutter.minSdkVersion/minSdkVersion = 21/g' android/app/build.gradle || true
+          # Gradle SDK பதிப்புகளைச் சரியாக அமைத்தல்
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle || true
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle || true
 
       - name: Build Android Release APK
         run: |
