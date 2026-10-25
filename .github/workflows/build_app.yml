@@ -1,35 +1,62 @@
-name: Deploy Tamil Bible Web App
+name: Generate Tamil Bible APK
 on:
   workflow_dispatch:
   push:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.16.9'
 
-      - name: Build Web
+      - name: Build Project
         run: |
-          flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
-          cd my_app
-          flutter pub add sqflite_common_ffi path
+          flutter create --org com.tamilbible.study --project-name tamil_study_bible_app bible_app
+          cd bible_app
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
-          unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
-          cp -f temp_extracted/lib/main.dart lib/main.dart
-          rm -rf temp_extracted
-          sed -i '/uses-material-design: true/a \  assets:\n    - assets/tamil_study_bible.db' pubspec.yaml
-          flutter build web --release
+          unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d extracted/
+          cp -f extracted/lib/main.dart lib/main.dart
+          rm -rf extracted
+          
+          # Stable Android configurations
+          echo "flutter.minSdkVersion=21" >> android/local.properties
+          
+          cat << 'EOF' > pubspec.yaml
+          name: tamil_study_bible_app
+          description: Tamil Study Bible
+          publish_to: 'none'
+          version: 1.0.0+1
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+            sqflite: ^2.3.0
+            path: ^1.8.3
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/tamil_study_bible.db
+          EOF
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK File
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./my_app/build/web
+          name: Tamil-Bible-APK
+          path: bible_app/build/app/outputs/flutter-apk/app-release.apk
