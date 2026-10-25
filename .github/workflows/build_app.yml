@@ -1,4 +1,4 @@
-name: Generate Tamil Bible APK
+name: Deploy Tamil Bible Web App
 on:
   workflow_dispatch:
   push:
@@ -10,78 +10,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Setup and Build Project
+      - name: Build Web
         run: |
-          # 1. புதிய செயலியை உருவாக்குதல்
           flutter create --org com.tamilbible.study --project-name tamil_study_bible_app my_app
           cd my_app
-
-          # 2. Assets அமைத்தல்
+          flutter pub add sqflite_common_ffi path
           mkdir -p assets
           cp ../tamil_study_bible.db assets/
-
-          # 3. Zip கோப்பிலிருந்து main.dart கோப்பை மட்டும் எடுத்தல்
           unzip -o ../Tamil_Study_Bible_With_History_v3.zip -d temp_extracted/
           cp -f temp_extracted/lib/main.dart lib/main.dart
           rm -rf temp_extracted
+          sed -i '/uses-material-design: true/a \  assets:\n    - assets/tamil_study_bible.db' pubspec.yaml
+          flutter build web --release
 
-          # 4. pubspec.yaml அமைத்தல்
-          cat << 'EOF' > pubspec.yaml
-          name: tamil_study_bible_app
-          description: Tamil Offline Study Bible Android App
-          publish_to: 'none'
-          version: 1.0.0+1
-
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-
-          dependencies:
-            flutter:
-              sdk: flutter
-            sqflite: ^2.3.0
-            path: ^1.8.3
-
-          flutter:
-            uses-material-design: true
-            assets:
-              - assets/tamil_study_bible.db
-          EOF
-
-          # 5. Gradle பிழையைத் தீர்க்கும் முழுமையான ஆண்ட்ராய்டு கட்டமைப்பு திருத்தம்
-          python3 -c "
-          import re
-          path = 'android/app/build.gradle'
-          with open(path, 'r') as f:
-              data = f.read()
-          # minSdkVersion மற்றும் compileSdkVersion-ஐ நிலையான எண்களாக மாற்றுதல்
-          data = re.sub(r'minSdkVersion\s+.*', 'minSdkVersion 21', data)
-          data = re.sub(r'minSdk\s*=.*', 'minSdk = 21', data)
-          data = re.sub(r'compileSdkVersion\s+.*', 'compileSdkVersion 34', data)
-          data = re.sub(r'compileSdk\s*=.*', 'compileSdk = 34', data)
-          data = re.sub(r'targetSdkVersion\s+.*', 'targetSdkVersion 34', data)
-          data = re.sub(r'targetSdk\s*=.*', 'targetSdk = 34', data)
-          with open(path, 'w') as f:
-              f.write(data)
-          "
-
-          # 6. Build
-          flutter pub get
-          flutter build apk --release --verbose
-
-      - name: Upload APK File
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: Tamil-Bible-APK
-          path: my_app/build/app/outputs/flutter-apk/app-release.apk
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./my_app/build/web
